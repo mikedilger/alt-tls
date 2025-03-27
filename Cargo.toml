@@ -9,4 +9,6 @@ license = "MIT"
 keywords = [ "tls", "rustls", "ed25519" ]
 edition = "2024"
 
-[dependencies]
+[features]
+default = ["std"]
+std = [ ]
