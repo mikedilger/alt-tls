@@ -11,4 +11,7 @@ edition = "2024"
 
 [features]
 default = ["std"]
-std = [ ]
+std = [ "rustls/std" ]
+
+[dependencies]
+rustls = { version = "0.23", default-features = false, features = ["logging", "tls12"] }
