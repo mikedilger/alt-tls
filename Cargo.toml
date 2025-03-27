@@ -1,0 +1,12 @@
+[package]
+name = "alt-tls"
+version = "0.1.0"
+description = "TLS providers for rustls that support modern alternates"
+authors = [ "Mike Dilger <mike@mikedilger.com>" ]
+readme = "README.md"
+repository = "https://github.com/mikedilger/alt-tls"
+license = "MIT"
+keywords = [ "tls", "rustls", "ed25519" ]
+edition = "2024"
+
+[dependencies]
