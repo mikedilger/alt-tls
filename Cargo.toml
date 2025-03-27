@@ -11,7 +11,10 @@ edition = "2024"
 
 [features]
 default = ["std"]
-std = [ "rustls/std" ]
+std = [ "rustls/std", "ed25519-dalek/std" ]
 
 [dependencies]
 rustls = { version = "0.23", default-features = false, features = ["logging", "tls12"] }
+ed25519-dalek = { version = "2", default-features = false, features = [ "pkcs8" ] }
+pkcs8 = "0.10"
+sec1 = { version = "0.7", default-features = false, features = ["pkcs8", "pem"] }
