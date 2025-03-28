@@ -27,6 +27,16 @@ supports a very limited TLS configuration:
 You can run the `example/server.rs` and `example/client.rs` and they will talk to
 each other over TLS using our provider.
 
+## Debugging / Inspecting
+
+For deeper inspection into the TLS you can set some environment varibles when you run
+the examples, e.g.
+
+```
+$ RUST_LOG=rustls=trace SSLKEYLOGFILE=sslkeys-server.log cargo run --example server
+$ RUST_LOG=rustls=trace SSLKEYLOGFILE=sslkeys-client.log cargo run --example client
+```
+
 ## TODO
 
 * Support for blake3
