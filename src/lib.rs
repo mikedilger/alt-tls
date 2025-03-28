@@ -40,14 +40,16 @@ pub fn provider() -> CryptoProvider {
     CryptoProvider {
         cipher_suites: ALL_CIPHER_SUITES.to_vec(),
         kx_groups: kx::ALL_KX_GROUPS.to_vec(),
-        signature_verification_algorithms: WebPkiSupportedAlgorithms {
-            all: &[&Ed25519Verifier],
-            mapping: &[(SignatureScheme::ED25519, &[&Ed25519Verifier])],
-        },
+        signature_verification_algorithms: SUPPORTED_ALGORITHMS,
         secure_random: &Provider,
         key_provider: &Provider,
     }
 }
+
+pub const SUPPORTED_ALGORITHMS: WebPkiSupportedAlgorithms = WebPkiSupportedAlgorithms {
+    all: &[&Ed25519Verifier],
+    mapping: &[(SignatureScheme::ED25519, &[&Ed25519Verifier])],
+};
 
 #[derive(Debug)]
 struct Provider;
