@@ -1,4 +1,34 @@
 # alt-tls
 
-This crate will provide TLS configurations usable by [rustls](https://crates.io/crates/rustls)
-that support modern alternate algorithms such as ed25519, blake3, and secp256k1 (bitcoin/nostr).
+This crate provides TLS configurations usable by [rustls](https://crates.io/crates/rustls)
+that support the modern ed25519 signature scheme and x25519 key exchange.
+
+We intend to also eventually support blake3 and secp256k1 (bitcoin/nostr) if feasible.
+
+## Identity Management
+
+Two binaries are provided: `generate_ed25519_identity` and `import_ed25519_identity`
+which generate (or import from hex) ed25519 secret signing key identities, and outputs
+the key in hex, in PEM, and also as a self-signed certificate in PEM.
+
+The certificate generated has af Distinguised Name with an alternate name
+that simply reads "IGNORE THE NAME, DETERMINE TRUST FROM THE KEY".
+
+## TLS
+
+We provide a TLS provider by calling `provider()` which internally provides and
+supports a very limited TLS configuration:
+
+* TLS 1.3 only
+* Signature algorithm is ed25519 only
+* AEAD is chacha20-poly1305 only (with ECDHE and PSK)
+* Hash is SHA256 only
+
+You can run the `example/server.rs` and `example/client.rs` and they will talk to
+each other over TLS using our provider.
+
+## TODO
+
+* Support for blake3
+* Support for secp256k1
+* Look at what hpke is for, and add if useful
