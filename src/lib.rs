@@ -34,7 +34,7 @@ pub use verify::Ed25519Verifier;
 ///
 /// * TLS is 1.3 only
 /// * Signature algorithm/scheme is ED25519 only
-/// * AEAD is chacha20-poly1305 only with ECDHE and PSK
+/// * AEAD is chacha20-poly1305 only
 /// * Hash is SHA256 only
 pub fn provider() -> CryptoProvider {
     CryptoProvider {
@@ -51,17 +51,35 @@ pub const SUPPORTED_ALGORITHMS: WebPkiSupportedAlgorithms = WebPkiSupportedAlgor
     mapping: &[(SignatureScheme::ED25519, &[&Ed25519Verifier])],
 };
 
+// We currently use a 'reserved for private use' number. Get one assigned.
+// See: https://www.iana.org/assignments/tls-parameters/tls-parameters.xml#tls-parameters-4
+const IANA_CIPHER_SUITE: u16 = 0xFFED;
+
 #[derive(Debug)]
 struct Provider;
 
-static ALL_CIPHER_SUITES: &[rustls::SupportedCipherSuite] =
-    &[TLS13_ECDHE_PSK_CHACHA20_POLY1305_SHA256];
+static ALL_CIPHER_SUITES: &[rustls::SupportedCipherSuite] = &[
+    TLS13_CHACHA20_POLY1305_BLAKE3,
+    TLS13_CHACHA20_POLY1305_SHA256,
+];
 
-pub const TLS13_ECDHE_PSK_CHACHA20_POLY1305_SHA256: SupportedCipherSuite =
+pub static TLS13_CHACHA20_POLY1305_SHA256: SupportedCipherSuite =
     SupportedCipherSuite::Tls13(&Tls13CipherSuite {
         common: CipherSuiteCommon {
-            suite: CipherSuite::TLS_ECDHE_PSK_WITH_CHACHA20_POLY1305_SHA256,
+            suite: CipherSuite::TLS13_CHACHA20_POLY1305_SHA256,
             hash_provider: &hash::Sha256,
+            confidentiality_limit: u64::MAX,
+        },
+        hkdf_provider: &rustls::crypto::tls13::HkdfUsingHmac(&hmac::Sha256Hmac),
+        aead_alg: &aead::Chacha20Poly1305,
+        quic: None, // FIXME
+    });
+
+pub static TLS13_CHACHA20_POLY1305_BLAKE3: SupportedCipherSuite =
+    SupportedCipherSuite::Tls13(&Tls13CipherSuite {
+        common: CipherSuiteCommon {
+            suite: CipherSuite::Unknown(IANA_CIPHER_SUITE),
+            hash_provider: &hash::Blake3,
             confidentiality_limit: u64::MAX,
         },
         hkdf_provider: &rustls::crypto::tls13::HkdfUsingHmac(&hmac::Sha256Hmac),

@@ -11,9 +11,10 @@ edition = "2024"
 
 [features]
 default = ["std"]
-std = [ "rustls/std", "ed25519-dalek/std" ]
+std = [ "rustls/std", "ed25519-dalek/std", "blake3/std" ]
 
 [dependencies]
+blake3 = { version = "1.7", default-features = false }
 chacha20poly1305 = { version = "0.10", default-features = false, features = ["alloc"] }
 ed25519-dalek = { version = "2", default-features = false, features = [ "pkcs8", "pem", "rand_core" ] }
 hex = "0.4"
