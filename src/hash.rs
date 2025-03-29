@@ -47,7 +47,7 @@ impl hash::Context for Sha256Context {
 // See: https://www.iana.org/assignments/tls-parameters/tls-parameters.xml#tls-parameters-18
 const IANA_HASH_ALGORITHM_CODE: u8 = 230;
 
-pub struct Blake3;
+pub(crate) struct Blake3;
 
 impl hash::Hash for Blake3 {
     fn start(&self) -> Box<dyn hash::Context> {
@@ -69,7 +69,7 @@ impl hash::Hash for Blake3 {
     }
 }
 
-struct Blake3Context(blake3::Hasher);
+pub(crate) struct Blake3Context(pub(crate) blake3::Hasher);
 
 impl hash::Context for Blake3Context {
     fn fork_finish(&self) -> hash::Output {

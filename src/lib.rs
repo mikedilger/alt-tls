@@ -82,7 +82,7 @@ pub static TLS13_CHACHA20_POLY1305_BLAKE3: SupportedCipherSuite =
             hash_provider: &hash::Blake3,
             confidentiality_limit: u64::MAX,
         },
-        hkdf_provider: &rustls::crypto::tls13::HkdfUsingHmac(&hmac::Sha256Hmac),
+        hkdf_provider: &rustls::crypto::tls13::HkdfUsingHmac(&hmac::Blake3),
         aead_alg: &aead::Chacha20Poly1305,
         quic: None, // FIXME
     });

@@ -23,7 +23,7 @@ supports a very limited TLS configuration:
 * Signature algorithm is ed25519 only
 * AEAD is chacha20-poly1305 only
 * Hash is SHA256 or Blake3 only
-* HMAC is SHA256 only (so far)
+* HMAC is SHA256 or Blake3 (directly using blake3 keyed hash, not HMAC construction)
 
 You can run the `example/server.rs` and `example/client.rs` and they will talk to
 each other over TLS using our provider.
@@ -40,7 +40,6 @@ $ RUST_LOG=rustls=trace SSLKEYLOGFILE=sslkeys-client.log cargo run --example cli
 
 ## TODO
 
-* Support for blake3 HMAC
 * Support for secp256k1
 * Look at what hpke is for, and add if useful
 * Figure out why rustls providers for TLS 1.3 don't specify (nor can use) ECDHE or PSK
