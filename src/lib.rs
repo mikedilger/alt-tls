@@ -21,6 +21,8 @@ mod hash;
 
 mod hmac;
 
+pub mod hpke;
+
 mod kx;
 
 mod sign;

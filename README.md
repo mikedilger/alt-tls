@@ -38,8 +38,17 @@ $ RUST_LOG=rustls=trace SSLKEYLOGFILE=sslkeys-server.log cargo run --example ser
 $ RUST_LOG=rustls=trace SSLKEYLOGFILE=sslkeys-client.log cargo run --example client
 ```
 
+## HPKE
+
+HPKE [RFC 9180](https://www.rfc-editor.org/rfc/rfc9180.html) standardizes public key
+encryption. We expose a copy of the rustls implementation of an HPKE provider.
+DHKEM_X25519_HKDF_SHA256_CHACHA20_POLY1305 looks nice.
+
+What is an HPKE? It is a newly standardized way to send an encrypted message to someone
+when you just know their public key, adopted into TLS and elsewhere. Previously we had
+a lot of incompatible implementations like BouncyCastle, NaCl box, etc.
+
 ## TODO
 
 * Support for secp256k1
-* Look at what hpke is for, and add if useful
 * Figure out why rustls providers for TLS 1.3 don't specify (nor can use) ECDHE or PSK
