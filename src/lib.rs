@@ -45,7 +45,7 @@ pub use verify::Ed25519Verifier;
 
 #[cfg(feature = "std")]
 /// This generates a self-signed certificate from an ed25519 private signing key
-pub fn certificate_pem(signing_key: &SigningKey) -> Result<String, Box<dyn std::error::Error>> {
+pub fn certificate_pem(signing_key: &SigningKey) -> Result<String, Box<dyn std::error::Error + Send + Sync + 'static>> {
     let signing_key_pem = signing_key.to_pkcs8_pem(LineEnding::LF)?;
     let rcgen_keypair = KeyPair::from_pem(signing_key_pem.deref())?;
 
