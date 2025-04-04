@@ -4,8 +4,20 @@ extern crate alloc;
 #[cfg(feature = "std")]
 extern crate std;
 
+#[cfg(not(feature = "std"))]
+use alloc::format;
+use alloc::string::String;
+use alloc::string::ToString;
 use alloc::sync::Arc;
+use alloc::vec;
+use core::ops::Deref;
+#[cfg(feature = "std")]
+use std::boxed::Box;
 
+use ed25519_dalek::SigningKey;
+use ed25519_dalek::pkcs8::EncodePrivateKey;
+use ed25519_dalek::pkcs8::spki::der::pem::LineEnding;
+use rcgen::{CertificateParams, KeyPair};
 use rustls::crypto::{CryptoProvider, WebPkiSupportedAlgorithms};
 use rustls::pki_types::PrivateKeyDer;
 use rustls::{
@@ -30,6 +42,38 @@ pub use sign::Ed25519Signer;
 
 mod verify;
 pub use verify::Ed25519Verifier;
+
+#[cfg(feature = "std")]
+/// This generates a self-signed certificate from an ed25519 private signing key
+pub fn certificate_pem(signing_key: &SigningKey) -> Result<String, Box<dyn std::error::Error + Send + Sync + 'static>> {
+    let signing_key_pem = signing_key.to_pkcs8_pem(LineEnding::LF)?;
+    let rcgen_keypair = KeyPair::from_pem(signing_key_pem.deref())?;
+
+    let cert = CertificateParams::new(vec![
+        "IGNORE THE NAME, DETERMINE TRUST FROM THE KEY".to_string(),
+    ])?
+    .self_signed(&rcgen_keypair)?;
+
+    Ok(cert.pem())
+}
+
+#[cfg(not(feature = "std"))]
+/// This generates a self-signed certificate from an ed25519 private signing key
+pub fn certificate_pem(signing_key: &SigningKey) -> Result<String, String> {
+    let signing_key_pem = signing_key
+        .to_pkcs8_pem(LineEnding::LF)
+        .map_err(|e| format!("{e}"))?;
+    let rcgen_keypair = KeyPair::from_pem(signing_key_pem.deref()).map_err(|e| format!("{e}"))?;
+
+    let cert = CertificateParams::new(vec![
+        "IGNORE THE NAME, DETERMINE TRUST FROM THE KEY".to_string(),
+    ])
+    .map_err(|e| format!("{e}"))?
+    .self_signed(&rcgen_keypair)
+    .map_err(|e| format!("{e}"))?;
+
+    Ok(cert.pem())
+}
 
 /// This supplies a rustls `CryptoProvider` that works with a very restricted
 /// configuration:
