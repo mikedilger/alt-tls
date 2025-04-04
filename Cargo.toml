@@ -29,6 +29,7 @@ rustls = { version = "0.23", default-features = false, features = [ "logging" ] 
 sec1 = { version = "0.7", default-features = false, features = ["pkcs8", "pem"] }
 sha2 = { version = "0.10", default-features = false }
 x25519-dalek = "2"
+x509-parser = "0.17"
 
 [dev-dependencies]
 env_logger = "0.11"
