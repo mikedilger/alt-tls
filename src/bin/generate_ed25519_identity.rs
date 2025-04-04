@@ -2,7 +2,6 @@ use ed25519_dalek::SigningKey;
 use ed25519_dalek::pkcs8::EncodePrivateKey;
 use ed25519_dalek::pkcs8::spki::der::pem::LineEnding;
 use rand_core::OsRng;
-use rcgen::{CertificateParams, KeyPair};
 use std::ops::Deref;
 
 #[cfg(target_os = "windows")]
@@ -31,14 +30,6 @@ fn main() {
         signing_key_pem.deref()
     );
 
-    // self signed certificate in PEM
-    let rcgen_keypair = KeyPair::from_pem(signing_key_pem.deref()).unwrap();
-    let cert = CertificateParams::new(vec![
-        "IGNORE THE NAME, DETERMINE TRUST FROM THE KEY".to_string(),
-    ])
-    .unwrap()
-    .self_signed(&rcgen_keypair)
-    .unwrap();
-
-    println!("PUBLIC SELF-SIGNED CERTIFICATE (pem):\n{}\n", cert.pem());
+    let cert_pem = alt_tls::certificate_pem(&signing_key).unwrap();
+    println!("PUBLIC SELF-SIGNED CERTIFICATE (pem):\n{}\n", cert_pem);
 }
