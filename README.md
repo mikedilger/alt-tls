@@ -1,9 +1,8 @@
 # alt-tls
 
 This crate provides TLS configurations usable by [rustls](https://crates.io/crates/rustls)
-that support the modern ed25519 signature scheme and x25519 key exchange.
-
-We intend to also eventually support blake3 and secp256k1 (bitcoin/nostr) if feasible.
+that support the modern ed25519 signature scheme and x25519 key exchange, and also blake3
+for hashing and HMAC substitution.
 
 ## Identity Management
 
