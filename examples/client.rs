@@ -8,12 +8,13 @@ const PORT: u32 = 4433;
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     env_logger::init();
 
-    let server_public_key = hex::decode("4ce5c72e946f0de39f431ae371c8b29b3d9eec992e71c53fb79f7022c0f2d0a0")?;
+    let server_public_key =
+        hex::decode("4ce5c72e946f0de39f431ae371c8b29b3d9eec992e71c53fb79f7022c0f2d0a0")?;
 
     let verifier = Arc::new(alt_tls::SelfSignedCertificateVerifier::new(
         alt_tls::SUPPORTED_ALGORITHMS,
         vec![rustls::SignatureScheme::ED25519],
-	Some(server_public_key),
+        Some(server_public_key),
     ));
 
     let client_config = {

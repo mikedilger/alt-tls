@@ -24,28 +24,21 @@ use rustls::{
     CipherSuite, CipherSuiteCommon, SignatureScheme, SupportedCipherSuite, Tls13CipherSuite,
 };
 
-mod aead;
-
+mod blake3hash;
 mod cert;
+mod chacha20poly1305;
 pub use cert::SelfSignedCertificateVerifier;
-
-mod hash;
-
-mod hmac;
-
+mod ed25519;
 pub mod hpke;
-
-mod kx;
-
-mod sign;
-pub use sign::Ed25519Signer;
-
-mod verify;
-pub use verify::Ed25519Verifier;
+mod sha256hash;
+pub use ed25519::{Ed25519Signer, Ed25519Verifier};
+mod x25519;
 
 #[cfg(feature = "std")]
 /// This generates a self-signed certificate from an ed25519 private signing key
-pub fn certificate_pem(signing_key: &SigningKey) -> Result<String, Box<dyn std::error::Error + Send + Sync + 'static>> {
+pub fn certificate_pem(
+    signing_key: &SigningKey,
+) -> Result<String, Box<dyn std::error::Error + Send + Sync + 'static>> {
     let signing_key_pem = signing_key.to_pkcs8_pem(LineEnding::LF)?;
     let rcgen_keypair = KeyPair::from_pem(signing_key_pem.deref())?;
 
@@ -85,7 +78,7 @@ pub fn certificate_pem(signing_key: &SigningKey) -> Result<String, String> {
 pub fn provider() -> CryptoProvider {
     CryptoProvider {
         cipher_suites: ALL_CIPHER_SUITES.to_vec(),
-        kx_groups: kx::ALL_KX_GROUPS.to_vec(),
+        kx_groups: x25519::ALL_KX_GROUPS.to_vec(),
         signature_verification_algorithms: SUPPORTED_ALGORITHMS,
         secure_random: &Provider,
         key_provider: &Provider,
@@ -113,11 +106,11 @@ pub static TLS13_CHACHA20_POLY1305_SHA256: SupportedCipherSuite =
     SupportedCipherSuite::Tls13(&Tls13CipherSuite {
         common: CipherSuiteCommon {
             suite: CipherSuite::TLS13_CHACHA20_POLY1305_SHA256,
-            hash_provider: &hash::Sha256,
+            hash_provider: &sha256hash::Sha256,
             confidentiality_limit: u64::MAX,
         },
-        hkdf_provider: &rustls::crypto::tls13::HkdfUsingHmac(&hmac::Sha256Hmac),
-        aead_alg: &aead::Chacha20Poly1305,
+        hkdf_provider: &rustls::crypto::tls13::HkdfUsingHmac(&sha256hash::Sha256Hmac),
+        aead_alg: &chacha20poly1305::Chacha20Poly1305,
         quic: None, // FIXME
     });
 
@@ -125,11 +118,11 @@ pub static TLS13_CHACHA20_POLY1305_BLAKE3: SupportedCipherSuite =
     SupportedCipherSuite::Tls13(&Tls13CipherSuite {
         common: CipherSuiteCommon {
             suite: CipherSuite::Unknown(IANA_CIPHER_SUITE),
-            hash_provider: &hash::Blake3,
+            hash_provider: &blake3hash::Blake3,
             confidentiality_limit: u64::MAX,
         },
-        hkdf_provider: &rustls::crypto::tls13::HkdfUsingHmac(&hmac::Blake3),
-        aead_alg: &aead::Chacha20Poly1305,
+        hkdf_provider: &rustls::crypto::tls13::HkdfUsingHmac(&blake3hash::Blake3),
+        aead_alg: &chacha20poly1305::Chacha20Poly1305,
         quic: None, // FIXME
     });
 
@@ -147,7 +140,7 @@ impl rustls::crypto::KeyProvider for Provider {
         &self,
         key_der: PrivateKeyDer<'static>,
     ) -> Result<Arc<dyn rustls::sign::SigningKey>, rustls::Error> {
-        Ok(Arc::new(sign::Ed25519Signer::try_from(&key_der).map_err(
+        Ok(Arc::new(Ed25519Signer::try_from(&key_der).map_err(
             |err| {
                 #[cfg(feature = "std")]
                 let err = rustls::OtherError(Arc::new(err));
