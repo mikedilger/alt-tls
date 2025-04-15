@@ -27,6 +27,20 @@ supports a very limited TLS configuration:
 You can run the `example/server.rs` and `example/client.rs` and they will talk to
 each other over TLS using our provider.
 
+## Cryptography Providers
+
+We currently are using these:
+
+sha256: [RustCrypto/hashes](https://github.com/RustCrypto/hashes)
+
+blake3: [BLAKE3-team/BLAKE3](https://github.com/BLAKE3-team/BLAKE3)
+
+chacha20poly1305: [RustCrypto/AEADs](https://github.com/RustCrypto/AEADs)
+
+ed25519 and x25519: [curve25519-dalek](https://github.com/dalek-cryptography/curve25519-dalek)
+
+hmac: [RustCrypto/MACs](https://github.com/RustCrypto/MACs)
+
 ## Debugging / Inspecting
 
 For deeper inspection into the TLS you can set some environment varibles when you run
