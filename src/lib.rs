@@ -14,9 +14,10 @@ use core::ops::Deref;
 #[cfg(feature = "std")]
 use std::boxed::Box;
 
-use ed25519_dalek::SigningKey;
+pub use ed25519_dalek::SigningKey;
 use ed25519_dalek::pkcs8::EncodePrivateKey;
 use ed25519_dalek::pkcs8::spki::der::pem::LineEnding;
+pub use ed25519_dalek::pkcs8::spki::der::zeroize::Zeroizing;
 use rcgen::{CertificateParams, KeyPair};
 use rustls::crypto::{CryptoProvider, WebPkiSupportedAlgorithms};
 use rustls::pki_types::PrivateKeyDer;
@@ -66,6 +67,21 @@ pub fn certificate_pem(signing_key: &SigningKey) -> Result<String, String> {
     .map_err(|e| format!("{e}"))?;
 
     Ok(cert.pem())
+}
+
+#[cfg(target_os = "windows")]
+const LINE_ENDING: LineEnding = LineEnding::CRLF;
+#[cfg(target_os = "macos")]
+const LINE_ENDING: LineEnding = LineEnding::CR;
+#[cfg(all(not(target_os = "windows"), not(target_os = "macos")))]
+const LINE_ENDING: LineEnding = LineEnding::LF;
+
+#[cfg(feature = "std")]
+/// This outputs a signing key in PKCS#8 PEM private key format
+pub fn private_key_pem(
+    signing_key: &SigningKey,
+) -> Result<Zeroizing<String>, Box<dyn std::error::Error>> {
+    Ok(signing_key.to_pkcs8_pem(LINE_ENDING)?)
 }
 
 /// This supplies a rustls `CryptoProvider` that works with a very restricted
