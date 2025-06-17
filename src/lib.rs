@@ -11,8 +11,6 @@ use alloc::string::ToString;
 use alloc::sync::Arc;
 use alloc::vec;
 use core::ops::Deref;
-#[cfg(feature = "std")]
-use std::boxed::Box;
 
 pub use ed25519_dalek::SigningKey;
 use ed25519_dalek::pkcs8::EncodePrivateKey;
@@ -30,6 +28,8 @@ mod cert;
 mod chacha20poly1305;
 pub use cert::SelfSignedCertificateVerifier;
 mod ed25519;
+mod error;
+pub use error::Error;
 pub mod hpke;
 mod sha256hash;
 pub use ed25519::{Ed25519Signer, Ed25519Verifier};
@@ -39,7 +39,7 @@ mod x25519;
 /// This generates a self-signed certificate from an ed25519 private signing key
 pub fn certificate_pem(
     signing_key: &SigningKey,
-) -> Result<String, Box<dyn std::error::Error + Send + Sync + 'static>> {
+) -> Result<String, Error> {
     let signing_key_pem = signing_key.to_pkcs8_pem(LineEnding::LF)?;
     let rcgen_keypair = KeyPair::from_pem(signing_key_pem.deref())?;
 
@@ -53,35 +53,17 @@ pub fn certificate_pem(
 
 #[cfg(not(feature = "std"))]
 /// This generates a self-signed certificate from an ed25519 private signing key
-pub fn certificate_pem(signing_key: &SigningKey) -> Result<String, String> {
+pub fn certificate_pem(signing_key: &SigningKey) -> Result<String, Error> {
     let signing_key_pem = signing_key
-        .to_pkcs8_pem(LineEnding::LF)
-        .map_err(|e| format!("{e}"))?;
-    let rcgen_keypair = KeyPair::from_pem(signing_key_pem.deref()).map_err(|e| format!("{e}"))?;
+        .to_pkcs8_pem(LineEnding::LF)?;
+    let rcgen_keypair = KeyPair::from_pem(signing_key_pem.deref())?;
 
     let cert = CertificateParams::new(vec![
         "IGNORE THE NAME, DETERMINE TRUST FROM THE KEY".to_string(),
-    ])
-    .map_err(|e| format!("{e}"))?
-    .self_signed(&rcgen_keypair)
-    .map_err(|e| format!("{e}"))?;
+    ])?
+    .self_signed(&rcgen_keypair)?;
 
     Ok(cert.pem())
-}
-
-#[cfg(target_os = "windows")]
-const LINE_ENDING: LineEnding = LineEnding::CRLF;
-#[cfg(target_os = "macos")]
-const LINE_ENDING: LineEnding = LineEnding::CR;
-#[cfg(all(not(target_os = "windows"), not(target_os = "macos")))]
-const LINE_ENDING: LineEnding = LineEnding::LF;
-
-#[cfg(feature = "std")]
-/// This outputs a signing key in PKCS#8 PEM private key format
-pub fn private_key_pem(
-    signing_key: &SigningKey,
-) -> Result<Zeroizing<String>, Box<dyn std::error::Error>> {
-    Ok(signing_key.to_pkcs8_pem(LINE_ENDING)?)
 }
 
 /// This supplies a rustls `CryptoProvider` that works with a very restricted
