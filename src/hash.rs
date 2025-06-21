@@ -18,17 +18,17 @@ pub(crate) enum Algorithm {
 /// A Hash context
 #[derive(Clone)]
 enum Context {
-    Blake3(blake3::Hasher),
-    Sha256(sha2::Sha256),
-    Sha384(sha2::Sha384),
+    Blake3(Box<blake3::Hasher>),
+    Sha256(Box<sha2::Sha256>),
+    Sha384(Box<sha2::Sha384>),
 }
 
 impl rc::hash::Hash for Algorithm {
     fn start(&self) -> Box<dyn rc::hash::Context> {
         match &self {
-            Algorithm::Blake3 => Box::new(Context::Blake3(blake3::Hasher::new())),
-            Algorithm::Sha256 => Box::new(Context::Sha256(sha2::Sha256::new())),
-            Algorithm::Sha384 => Box::new(Context::Sha384(sha2::Sha384::new())),
+            Algorithm::Blake3 => Box::new(Context::Blake3(Box::new(blake3::Hasher::new()))),
+            Algorithm::Sha256 => Box::new(Context::Sha256(Box::new(sha2::Sha256::new()))),
+            Algorithm::Sha384 => Box::new(Context::Sha384(Box::new(sha2::Sha384::new()))),
         }
     }
 
@@ -38,21 +38,15 @@ impl rc::hash::Hash for Algorithm {
                 let mut hasher = blake3::Hasher::new();
                 hasher.update(data);
                 rc::hash::Output::new(hasher.finalize().as_bytes().as_slice())
-            },
-            Algorithm::Sha256 => {
-                rc::hash::Output::new(&sha2::Sha256::digest(data)[..])
-            },
-            Algorithm::Sha384 => {
-                rc::hash::Output::new(&sha2::Sha384::digest(data)[..])
-            },
+            }
+            Algorithm::Sha256 => rc::hash::Output::new(&sha2::Sha256::digest(data)[..]),
+            Algorithm::Sha384 => rc::hash::Output::new(&sha2::Sha384::digest(data)[..]),
         }
     }
 
     fn algorithm(&self) -> rc::hash::HashAlgorithm {
         match &self {
-            Algorithm::Blake3 => rc::hash::HashAlgorithm::Unknown(
-                IANA_BLAKE3_HASH_ALGORITHM_CODE
-            ),
+            Algorithm::Blake3 => rc::hash::HashAlgorithm::Unknown(IANA_BLAKE3_HASH_ALGORITHM_CODE),
             Algorithm::Sha256 => rc::hash::HashAlgorithm::SHA256,
             Algorithm::Sha384 => rc::hash::HashAlgorithm::SHA384,
         }
@@ -66,14 +60,13 @@ impl rc::hash::Hash for Algorithm {
 impl Context {
     fn finish_inner(self) -> rc::hash::Output {
         match self {
-            Self::Blake3(context) => rc::hash::Output::new(
-                context.finalize().as_bytes().as_slice()
-            ),
+            Self::Blake3(context) => {
+                rc::hash::Output::new(context.finalize().as_bytes().as_slice())
+            }
             Self::Sha256(context) => rc::hash::Output::new(&context.finalize()[..]),
             Self::Sha384(context) => rc::hash::Output::new(&context.finalize()[..]),
         }
     }
-
 }
 
 impl rc::hash::Context for Context {
@@ -94,7 +87,7 @@ impl rc::hash::Context for Context {
         match self {
             Self::Blake3(context) => {
                 context.update(data);
-            },
+            }
             Self::Sha256(context) => context.update(data),
             Self::Sha384(context) => context.update(data),
         }

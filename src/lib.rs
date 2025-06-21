@@ -12,34 +12,31 @@ use alloc::sync::Arc;
 use alloc::vec;
 use core::ops::Deref;
 
-pub use ed25519_dalek::SigningKey;
-use ed25519_dalek::pkcs8::EncodePrivateKey;
-use ed25519_dalek::pkcs8::spki::der::pem::LineEnding;
-pub use ed25519_dalek::pkcs8::spki::der::zeroize::Zeroizing;
-use rcgen::{CertificateParams, KeyPair};
-use rustls::crypto::{CryptoProvider, WebPkiSupportedAlgorithms};
-use rustls::pki_types::PrivateKeyDer;
-use rustls::{
-    CipherSuite, CipherSuiteCommon, SignatureScheme, SupportedCipherSuite, Tls13CipherSuite,
-};
-
+mod aead;
 mod cert;
-mod chacha20poly1305;
 pub use cert::SelfSignedCertificateVerifier;
 mod ed25519;
+pub use ed25519::{Ed25519Signer, Ed25519Verifier};
 mod error;
 pub use error::Error;
 mod hash;
 mod hmac;
 pub mod hpke;
-pub use ed25519::{Ed25519Signer, Ed25519Verifier};
+mod tls13;
 mod x25519;
+
+pub use ed25519_dalek::SigningKey;
+use ed25519_dalek::pkcs8::EncodePrivateKey;
+use ed25519_dalek::pkcs8::spki::der::pem::LineEnding;
+pub use ed25519_dalek::pkcs8::spki::der::zeroize::Zeroizing;
+use rcgen::{CertificateParams, KeyPair};
+use rustls::SignatureScheme;
+use rustls::crypto::{CryptoProvider, WebPkiSupportedAlgorithms};
+use rustls::pki_types::PrivateKeyDer;
 
 #[cfg(feature = "std")]
 /// This generates a self-signed certificate from an ed25519 private signing key
-pub fn certificate_pem(
-    signing_key: &SigningKey,
-) -> Result<String, Error> {
+pub fn certificate_pem(signing_key: &SigningKey) -> Result<String, Error> {
     let signing_key_pem = signing_key.to_pkcs8_pem(LineEnding::LF)?;
     let rcgen_keypair = KeyPair::from_pem(signing_key_pem.deref())?;
 
@@ -54,8 +51,7 @@ pub fn certificate_pem(
 #[cfg(not(feature = "std"))]
 /// This generates a self-signed certificate from an ed25519 private signing key
 pub fn certificate_pem(signing_key: &SigningKey) -> Result<String, Error> {
-    let signing_key_pem = signing_key
-        .to_pkcs8_pem(LineEnding::LF)?;
+    let signing_key_pem = signing_key.to_pkcs8_pem(LineEnding::LF)?;
     let rcgen_keypair = KeyPair::from_pem(signing_key_pem.deref())?;
 
     let cert = CertificateParams::new(vec![
@@ -88,41 +84,15 @@ pub const SUPPORTED_ALGORITHMS: WebPkiSupportedAlgorithms = WebPkiSupportedAlgor
     mapping: &[(SignatureScheme::ED25519, &[&Ed25519Verifier])],
 };
 
-// We currently use a 'reserved for private use' number. Get one assigned.
-// See: https://www.iana.org/assignments/tls-parameters/tls-parameters.xml#tls-parameters-4
-const IANA_CIPHER_SUITE: u16 = 0xFFED;
-
 #[derive(Debug)]
 struct Provider;
 
 static ALL_CIPHER_SUITES: &[rustls::SupportedCipherSuite] = &[
-    TLS13_CHACHA20_POLY1305_BLAKE3,
-    TLS13_CHACHA20_POLY1305_SHA256,
+    tls13::TLS13_CHACHA20_POLY1305_BLAKE3,
+    tls13::TLS13_CHACHA20_POLY1305_SHA256,
+    tls13::TLS13_AES_256_GCM_SHA384,
+    tls13::TLS13_AES_128_GCM_SHA256,
 ];
-
-pub static TLS13_CHACHA20_POLY1305_SHA256: SupportedCipherSuite =
-    SupportedCipherSuite::Tls13(&Tls13CipherSuite {
-        common: CipherSuiteCommon {
-            suite: CipherSuite::TLS13_CHACHA20_POLY1305_SHA256,
-            hash_provider: &hash::Algorithm::Sha256,
-            confidentiality_limit: u64::MAX,
-        },
-        hkdf_provider: &rustls::crypto::tls13::HkdfUsingHmac(&hmac::AltHmac(hash::Algorithm::Sha256)),
-        aead_alg: &chacha20poly1305::Chacha20Poly1305,
-        quic: None, // FIXME
-    });
-
-pub static TLS13_CHACHA20_POLY1305_BLAKE3: SupportedCipherSuite =
-    SupportedCipherSuite::Tls13(&Tls13CipherSuite {
-        common: CipherSuiteCommon {
-            suite: CipherSuite::Unknown(IANA_CIPHER_SUITE),
-            hash_provider: &hash::Algorithm::Blake3,
-            confidentiality_limit: u64::MAX,
-        },
-        hkdf_provider: &rustls::crypto::tls13::HkdfUsingHmac(&hmac::AltHmac(hash::Algorithm::Blake3)),
-        aead_alg: &chacha20poly1305::Chacha20Poly1305,
-        quic: None, // FIXME
-    });
 
 impl rustls::crypto::SecureRandom for Provider {
     fn fill(&self, bytes: &mut [u8]) -> Result<(), rustls::crypto::GetRandomFailed> {

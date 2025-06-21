@@ -14,24 +14,24 @@ impl rc::hmac::Hmac for AltHmac {
                     // If the key is longer than 32 bytes, hash it first and use the hash as
                     // the key
                     let hash = blake3::Hasher::new().update(key).finalize();
-                    Box::new(AltHmacKey::Blake3(blake3::Hasher::new_keyed(hash.as_bytes())))
+                    Box::new(AltHmacKey::Blake3(Box::new(blake3::Hasher::new_keyed(
+                        hash.as_bytes(),
+                    ))))
                 } else {
                     // Otherwise use the key (zero-padded if less than 32 bytes)
                     let mut nkey: [u8; 32] = [0; 32];
                     nkey.copy_from_slice(key);
-                    Box::new(AltHmacKey::Blake3(blake3::Hasher::new_keyed(&nkey)))
+                    Box::new(AltHmacKey::Blake3(Box::new(blake3::Hasher::new_keyed(
+                        &nkey,
+                    ))))
                 }
-            },
-            crate::hash::Algorithm::Sha256 => {
-                Box::new(AltHmacKey::Sha256(
-                    Hmac::<sha2::Sha256>::new_from_slice(key).unwrap(),
-                ))
-            },
-            crate::hash::Algorithm::Sha384 => {
-                Box::new(AltHmacKey::Sha384(
-                    Hmac::<sha2::Sha384>::new_from_slice(key).unwrap(),
-                ))
-            },
+            }
+            crate::hash::Algorithm::Sha256 => Box::new(AltHmacKey::Sha256(
+                Hmac::<sha2::Sha256>::new_from_slice(key).unwrap(),
+            )),
+            crate::hash::Algorithm::Sha384 => Box::new(AltHmacKey::Sha384(
+                Hmac::<sha2::Sha384>::new_from_slice(key).unwrap(),
+            )),
         }
     }
 
@@ -45,11 +45,10 @@ impl rc::hmac::Hmac for AltHmac {
 }
 
 pub enum AltHmacKey {
-    Blake3(blake3::Hasher),
+    Blake3(Box<blake3::Hasher>),
     Sha256(hmac::Hmac<sha2::Sha256>),
     Sha384(hmac::Hmac<sha2::Sha384>),
 }
-
 
 impl rc::hmac::Key for AltHmacKey {
     fn sign_concat(&self, first: &[u8], middle: &[&[u8]], last: &[u8]) -> rc::hmac::Tag {
@@ -62,7 +61,7 @@ impl rc::hmac::Key for AltHmacKey {
                 }
                 ctx.update(last);
                 rc::hmac::Tag::new(&ctx.finalize().as_bytes()[..])
-            },
+            }
             AltHmacKey::Sha256(hmac) => {
                 let mut ctx = hmac.clone();
                 ctx.update(first);
@@ -71,7 +70,7 @@ impl rc::hmac::Key for AltHmacKey {
                 }
                 ctx.update(last);
                 rc::hmac::Tag::new(&ctx.finalize().into_bytes()[..])
-            },
+            }
             AltHmacKey::Sha384(hmac) => {
                 let mut ctx = hmac.clone();
                 ctx.update(first);
@@ -80,7 +79,7 @@ impl rc::hmac::Key for AltHmacKey {
                 }
                 ctx.update(last);
                 rc::hmac::Tag::new(&ctx.finalize().into_bytes()[..])
-            },
+            }
         }
     }
 
