@@ -23,15 +23,15 @@ use rustls::{
     CipherSuite, CipherSuiteCommon, SignatureScheme, SupportedCipherSuite, Tls13CipherSuite,
 };
 
-mod blake3hash;
 mod cert;
 mod chacha20poly1305;
 pub use cert::SelfSignedCertificateVerifier;
 mod ed25519;
 mod error;
 pub use error::Error;
+mod hash;
+mod hmac;
 pub mod hpke;
-mod sha256hash;
 pub use ed25519::{Ed25519Signer, Ed25519Verifier};
 mod x25519;
 
@@ -104,10 +104,10 @@ pub static TLS13_CHACHA20_POLY1305_SHA256: SupportedCipherSuite =
     SupportedCipherSuite::Tls13(&Tls13CipherSuite {
         common: CipherSuiteCommon {
             suite: CipherSuite::TLS13_CHACHA20_POLY1305_SHA256,
-            hash_provider: &sha256hash::Sha256,
+            hash_provider: &hash::Algorithm::Sha256,
             confidentiality_limit: u64::MAX,
         },
-        hkdf_provider: &rustls::crypto::tls13::HkdfUsingHmac(&sha256hash::Sha256Hmac),
+        hkdf_provider: &rustls::crypto::tls13::HkdfUsingHmac(&hmac::AltHmac(hash::Algorithm::Sha256)),
         aead_alg: &chacha20poly1305::Chacha20Poly1305,
         quic: None, // FIXME
     });
@@ -116,10 +116,10 @@ pub static TLS13_CHACHA20_POLY1305_BLAKE3: SupportedCipherSuite =
     SupportedCipherSuite::Tls13(&Tls13CipherSuite {
         common: CipherSuiteCommon {
             suite: CipherSuite::Unknown(IANA_CIPHER_SUITE),
-            hash_provider: &blake3hash::Blake3,
+            hash_provider: &hash::Algorithm::Blake3,
             confidentiality_limit: u64::MAX,
         },
-        hkdf_provider: &rustls::crypto::tls13::HkdfUsingHmac(&blake3hash::Blake3),
+        hkdf_provider: &rustls::crypto::tls13::HkdfUsingHmac(&hmac::AltHmac(hash::Algorithm::Blake3)),
         aead_alg: &chacha20poly1305::Chacha20Poly1305,
         quic: None, // FIXME
     });
