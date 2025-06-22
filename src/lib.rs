@@ -22,6 +22,7 @@ pub use error::Error;
 mod hash;
 mod hmac;
 pub mod hpke;
+mod quic;
 mod tls13;
 mod x25519;
 

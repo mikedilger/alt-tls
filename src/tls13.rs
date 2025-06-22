@@ -1,4 +1,4 @@
-use crate::{aead, hash, hmac};
+use crate::{aead, hash, hmac, quic};
 use rustls::{CipherSuite, CipherSuiteCommon, SupportedCipherSuite, Tls13CipherSuite};
 
 // We currently use a 'reserved for private use' number. Get one assigned.
@@ -16,7 +16,7 @@ pub static TLS13_CHACHA20_POLY1305_BLAKE3: SupportedCipherSuite =
             hash::Algorithm::Blake3,
         )),
         aead_alg: &aead::chacha20::Chacha20Poly1305,
-        quic: None, // FIXME
+        quic: Some(&quic::Chacha),
     });
 
 pub static TLS13_CHACHA20_POLY1305_SHA256: SupportedCipherSuite =
@@ -30,7 +30,7 @@ pub static TLS13_CHACHA20_POLY1305_SHA256: SupportedCipherSuite =
             hash::Algorithm::Sha256,
         )),
         aead_alg: &aead::chacha20::Chacha20Poly1305,
-        quic: None, // FIXME
+        quic: Some(&quic::Chacha),
     });
 
 pub static TLS13_AES_128_GCM_SHA256: SupportedCipherSuite =
@@ -44,7 +44,7 @@ pub static TLS13_AES_128_GCM_SHA256: SupportedCipherSuite =
             hash::Algorithm::Sha256,
         )),
         aead_alg: &aead::gcm::Tls13Aes128Gcm,
-        quic: None, // FIXME
+        quic: Some(&quic::Aes128),
     });
 
 pub static TLS13_AES_256_GCM_SHA384: SupportedCipherSuite =
@@ -58,5 +58,5 @@ pub static TLS13_AES_256_GCM_SHA384: SupportedCipherSuite =
             hash::Algorithm::Sha384,
         )),
         aead_alg: &aead::gcm::Tls13Aes256Gcm,
-        quic: None, // FIXME
+        quic: Some(&quic::Aes256),
     });
