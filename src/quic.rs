@@ -4,6 +4,7 @@ use rustls::Error;
 use rustls::crypto::cipher::{AeadKey, Iv, Nonce};
 use rustls::quic::{Algorithm, HeaderProtectionKey, PacketKey, Tag};
 
+#[derive(Clone, Copy)]
 pub enum QuicAlgorithm {
     ChaCha,
     Aes128,
@@ -11,8 +12,12 @@ pub enum QuicAlgorithm {
 }
 
 impl Algorithm for QuicAlgorithm {
-    fn packet_key(&self, _key: AeadKey, _iv: Iv) -> Box<dyn PacketKey> {
-        todo!()
+    fn packet_key(&self, key: AeadKey, iv: Iv) -> Box<dyn PacketKey> {
+        Box::new(QuicPacketKey {
+            algorithm: *self,
+            key,
+            iv,
+        })
     }
 
     fn header_protection_key(&self, _key: AeadKey) -> Box<dyn HeaderProtectionKey> {
@@ -43,13 +48,18 @@ impl PacketKey for QuicPacketKey {
     fn encrypt_in_place(
         &self,
         packet_number: u64,
-        _header_aad: &[u8],
-        _payload: &mut [u8],
+        header_aad: &[u8],
+        payload: &mut [u8],
     ) -> Result<Tag, Error> {
-        let _nonce = Nonce::new(&self.iv, packet_number);
+        let nonce = Nonce::new(&self.iv, packet_number);
         match self.algorithm {
             QuicAlgorithm::ChaCha => {
-                todo!()
+                use chacha20poly1305::{AeadInPlace, ChaCha20Poly1305, KeyInit};
+                let c = ChaCha20Poly1305::new(self.key.as_ref().into());
+                let ctag = c
+                    .encrypt_in_place_detached(&(nonce.0.into()), header_aad, payload)
+                    .map_err(|_| Error::EncryptError)?;
+                Ok(Tag::from(ctag.as_slice()))
             }
             QuicAlgorithm::Aes128 => {
                 todo!()
@@ -68,13 +78,21 @@ impl PacketKey for QuicPacketKey {
     fn decrypt_in_place<'a>(
         &self,
         packet_number: u64,
-        _header_aad: &[u8],
-        _payload: &'a mut [u8],
+        header_aad: &[u8],
+        payload: &'a mut [u8],
     ) -> Result<&'a [u8], Error> {
-        let _nonce = Nonce::new(&self.iv, packet_number);
+        let nonce = Nonce::new(&self.iv, packet_number);
+        let plain_len = payload.len() - self.tag_len();
         match self.algorithm {
             QuicAlgorithm::ChaCha => {
-                todo!()
+                use chacha20poly1305::Tag as CTag;
+                use chacha20poly1305::{AeadInPlace, ChaCha20Poly1305, KeyInit};
+                let c = ChaCha20Poly1305::new(self.key.as_ref().into());
+                let tag = Tag::from(&payload[plain_len..plain_len + 16]);
+                let ctag = CTag::from_slice(tag.as_ref());
+                c.decrypt_in_place_detached(&(nonce.0.into()), header_aad, payload, ctag)
+                    .map_err(|_| Error::DecryptError)?;
+                Ok(&payload[..plain_len])
             }
             QuicAlgorithm::Aes128 => {
                 todo!()
