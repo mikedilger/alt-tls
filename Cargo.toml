@@ -17,7 +17,8 @@ std = [ "rustls/std", "ed25519-dalek/std", "blake3/std", "hpke-rs/std", "hpke-rs
 aead = { version = "0.5", default-features = false }
 aes-gcm = { version = "0.10", default-features = false, features = [ "aes", "alloc" ] }
 blake3 = { version = "1.7", default-features = false }
-chacha20poly1305 = { version = "0.10", default-features = false, features = ["alloc"] }
+chacha20 = "0.9"
+chacha20poly1305 = { version = "0.10", default-features = false, features = [ "alloc" ] }
 crypto-common = { version = "0.1", default-features = false }
 ed25519-dalek = { version = "2", default-features = false, features = [ "pkcs8", "pem", "rand_core" ] }
 hex = "0.4"
@@ -37,3 +38,4 @@ x509-parser = "0.17"
 
 [dev-dependencies]
 env_logger = "0.11"
+hex = "0.4"
