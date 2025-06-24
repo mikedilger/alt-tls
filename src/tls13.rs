@@ -1,5 +1,6 @@
 use crate::{aead, hash, hmac, quic};
-use rustls::{CipherSuite, CipherSuiteCommon, SupportedCipherSuite, Tls13CipherSuite};
+pub use rustls::SupportedCipherSuite;
+use rustls::{CipherSuite, CipherSuiteCommon, Tls13CipherSuite};
 
 // We currently use a 'reserved for private use' number. Get one assigned.
 // See: https://www.iana.org/assignments/tls-parameters/tls-parameters.xml#tls-parameters-4
@@ -8,7 +9,7 @@ const IANA_CIPHER_SUITE: u16 = 0xFFED;
 pub static TLS13_CHACHA20_POLY1305_BLAKE3: SupportedCipherSuite =
     SupportedCipherSuite::Tls13(&TLS13_CHACHA20_POLY1305_BLAKE3_INTERNAL);
 
-pub static TLS13_CHACHA20_POLY1305_BLAKE3_INTERNAL: Tls13CipherSuite = Tls13CipherSuite {
+pub(crate) static TLS13_CHACHA20_POLY1305_BLAKE3_INTERNAL: Tls13CipherSuite = Tls13CipherSuite {
     common: CipherSuiteCommon {
         suite: CipherSuite::Unknown(IANA_CIPHER_SUITE),
         hash_provider: &hash::Algorithm::Blake3,
@@ -22,7 +23,7 @@ pub static TLS13_CHACHA20_POLY1305_BLAKE3_INTERNAL: Tls13CipherSuite = Tls13Ciph
 pub static TLS13_CHACHA20_POLY1305_SHA256: SupportedCipherSuite =
     SupportedCipherSuite::Tls13(&TLS13_CHACHA20_POLY1305_SHA256_INTERNAL);
 
-pub static TLS13_CHACHA20_POLY1305_SHA256_INTERNAL: Tls13CipherSuite = Tls13CipherSuite {
+pub(crate) static TLS13_CHACHA20_POLY1305_SHA256_INTERNAL: Tls13CipherSuite = Tls13CipherSuite {
     common: CipherSuiteCommon {
         suite: CipherSuite::TLS13_CHACHA20_POLY1305_SHA256,
         hash_provider: &hash::Algorithm::Sha256,
@@ -36,7 +37,7 @@ pub static TLS13_CHACHA20_POLY1305_SHA256_INTERNAL: Tls13CipherSuite = Tls13Ciph
 pub static TLS13_AES_128_GCM_SHA256: SupportedCipherSuite =
     SupportedCipherSuite::Tls13(&TLS13_AES_128_GCM_SHA256_INTERNAL);
 
-pub static TLS13_AES_128_GCM_SHA256_INTERNAL: Tls13CipherSuite = Tls13CipherSuite {
+pub(crate) static TLS13_AES_128_GCM_SHA256_INTERNAL: Tls13CipherSuite = Tls13CipherSuite {
     common: CipherSuiteCommon {
         suite: CipherSuite::TLS13_AES_128_GCM_SHA256,
         hash_provider: &hash::Algorithm::Sha256,
@@ -50,7 +51,7 @@ pub static TLS13_AES_128_GCM_SHA256_INTERNAL: Tls13CipherSuite = Tls13CipherSuit
 pub static TLS13_AES_256_GCM_SHA384: SupportedCipherSuite =
     SupportedCipherSuite::Tls13(&TLS13_AES_256_GCM_SHA384_INTERNAL);
 
-pub static TLS13_AES_256_GCM_SHA384_INTERNAL: Tls13CipherSuite = Tls13CipherSuite {
+pub(crate) static TLS13_AES_256_GCM_SHA384_INTERNAL: Tls13CipherSuite = Tls13CipherSuite {
     common: CipherSuiteCommon {
         suite: CipherSuite::TLS13_AES_256_GCM_SHA384,
         hash_provider: &hash::Algorithm::Sha384,

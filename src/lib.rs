@@ -24,6 +24,7 @@ mod hmac;
 pub mod hpke;
 mod quic;
 mod tls13;
+pub use tls13::*;
 mod x25519;
 
 pub use ed25519_dalek::SigningKey;
@@ -68,11 +69,31 @@ pub fn certificate_pem(signing_key: &SigningKey) -> Result<String, Error> {
 ///
 /// * TLS is 1.3 only
 /// * Signature algorithm/scheme is ED25519 only
-/// * AEAD is chacha20-poly1305 only
-/// * Hash is SHA256 only
+/// * Cipher suites supported include
+///     * TLS13_CHACHA20_POLY1305_BLAKE3 (non standard)
+///     * TLS13_CHACHA20_POLY1305_SHA256
+///     * TLS13_AES_256_GCM_SHA384
+///     * TLS13_AES_128_GCM_SHA256
 pub fn provider() -> CryptoProvider {
     CryptoProvider {
         cipher_suites: ALL_CIPHER_SUITES.to_vec(),
+        kx_groups: x25519::ALL_KX_GROUPS.to_vec(),
+        signature_verification_algorithms: SUPPORTED_ALGORITHMS,
+        secure_random: &Provider,
+        key_provider: &Provider,
+    }
+}
+
+/// This supplies a rustls `CryptoProvider` that works with a very restricted
+/// configuration, and lets you specify your preferred cipher suites:
+///
+/// * TLS is 1.3 only
+/// * Signature algorithm/scheme is ED25519 only
+pub fn configured_provider(
+    cipher_suites: vec::Vec<rustls::SupportedCipherSuite>,
+) -> CryptoProvider {
+    CryptoProvider {
+        cipher_suites,
         kx_groups: x25519::ALL_KX_GROUPS.to_vec(),
         signature_verification_algorithms: SUPPORTED_ALGORITHMS,
         secure_random: &Provider,
@@ -88,7 +109,7 @@ pub const SUPPORTED_ALGORITHMS: WebPkiSupportedAlgorithms = WebPkiSupportedAlgor
 #[derive(Debug)]
 struct Provider;
 
-static ALL_CIPHER_SUITES: &[rustls::SupportedCipherSuite] = &[
+pub static ALL_CIPHER_SUITES: &[rustls::SupportedCipherSuite] = &[
     tls13::TLS13_CHACHA20_POLY1305_BLAKE3,
     tls13::TLS13_CHACHA20_POLY1305_SHA256,
     tls13::TLS13_AES_256_GCM_SHA384,
