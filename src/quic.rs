@@ -17,7 +17,11 @@ impl Algorithm for QuicAlgorithm {
     fn packet_key(&self, key: AeadKey, iv: Iv) -> Box<dyn PacketKey> {
         Box::new(QuicPacketKey {
             algorithm: *self,
-            key,
+            key: match self {
+                QuicAlgorithm::ChaCha => InnerKey::Key256(key.as_ref()[..32].try_into().unwrap()),
+                QuicAlgorithm::Aes128 => InnerKey::Key128(key.as_ref()[..16].try_into().unwrap()),
+                QuicAlgorithm::Aes256 => InnerKey::Key256(key.as_ref()[..32].try_into().unwrap()),
+            },
             iv,
         })
     }
@@ -25,22 +29,40 @@ impl Algorithm for QuicAlgorithm {
     fn header_protection_key(&self, key: AeadKey) -> Box<dyn HeaderProtectionKey> {
         Box::new(QuicHeaderKey {
             algorithm: *self,
-            key,
+            key: match self {
+                QuicAlgorithm::ChaCha => InnerKey::Key256(key.as_ref()[..32].try_into().unwrap()),
+                QuicAlgorithm::Aes128 => InnerKey::Key128(key.as_ref()[..16].try_into().unwrap()),
+                QuicAlgorithm::Aes256 => InnerKey::Key256(key.as_ref()[..32].try_into().unwrap()),
+            },
         })
     }
 
     fn aead_key_len(&self) -> usize {
-        match &self {
-            QuicAlgorithm::ChaCha => 16,
-            QuicAlgorithm::Aes128 => aes_gcm::Aes128Gcm::key_size(),
-            QuicAlgorithm::Aes256 => aes_gcm::Aes256Gcm::key_size(),
+        match self {
+            QuicAlgorithm::ChaCha => 32,
+            QuicAlgorithm::Aes128 => aes_gcm::Aes128Gcm::key_size(), // 16
+            QuicAlgorithm::Aes256 => aes_gcm::Aes256Gcm::key_size(), // 32
+        }
+    }
+}
+
+pub enum InnerKey {
+    Key128([u8; 16]),
+    Key256([u8; 32]),
+}
+
+impl AsRef<[u8]> for InnerKey {
+    fn as_ref(&self) -> &[u8] {
+        match self {
+            InnerKey::Key128(i) => i.as_slice(),
+            InnerKey::Key256(i) => i.as_slice(),
         }
     }
 }
 
 pub struct QuicPacketKey {
     algorithm: QuicAlgorithm,
-    key: AeadKey,
+    key: InnerKey,
     iv: Iv,
 }
 
@@ -67,10 +89,20 @@ impl PacketKey for QuicPacketKey {
                 Ok(Tag::from(ctag.as_slice()))
             }
             QuicAlgorithm::Aes128 => {
-                todo!()
+                use aes_gcm::{AeadInPlace, Aes128Gcm, KeyInit};
+                let c = Aes128Gcm::new(self.key.as_ref().into());
+                let ctag = c
+                    .encrypt_in_place_detached(&(nonce.0.into()), header_aad, payload)
+                    .map_err(|_| Error::EncryptError)?;
+                Ok(Tag::from(ctag.as_slice()))
             }
             QuicAlgorithm::Aes256 => {
-                todo!()
+                use aes_gcm::{AeadInPlace, Aes256Gcm, KeyInit};
+                let c = Aes256Gcm::new(self.key.as_ref().into());
+                let ctag = c
+                    .encrypt_in_place_detached(&(nonce.0.into()), header_aad, payload)
+                    .map_err(|_| Error::EncryptError)?;
+                Ok(Tag::from(ctag.as_slice()))
             }
         }
     }
@@ -108,10 +140,34 @@ impl PacketKey for QuicPacketKey {
                 Ok(&payload[..plain_len])
             }
             QuicAlgorithm::Aes128 => {
-                todo!()
+                use aes_gcm::Tag as CTag;
+                use aes_gcm::{AeadInPlace, Aes128Gcm, KeyInit};
+                let c = Aes128Gcm::new(self.key.as_ref().into());
+                let tag = Tag::from(&payload[plain_len..plain_len + 16]);
+                let ctag = CTag::from_slice(tag.as_ref());
+                c.decrypt_in_place_detached(
+                    &(nonce.0.into()),
+                    header_aad,
+                    &mut payload[..plain_len],
+                    ctag,
+                )
+                .map_err(|_| Error::DecryptError)?;
+                Ok(&payload[..plain_len])
             }
             QuicAlgorithm::Aes256 => {
-                todo!()
+                use aes_gcm::Tag as CTag;
+                use aes_gcm::{AeadInPlace, Aes256Gcm, KeyInit};
+                let c = Aes256Gcm::new(self.key.as_ref().into());
+                let tag = Tag::from(&payload[plain_len..plain_len + 16]);
+                let ctag = CTag::from_slice(tag.as_ref());
+                c.decrypt_in_place_detached(
+                    &(nonce.0.into()),
+                    header_aad,
+                    &mut payload[..plain_len],
+                    ctag,
+                )
+                .map_err(|_| Error::DecryptError)?;
+                Ok(&payload[..plain_len])
             }
         }
     }
@@ -141,7 +197,7 @@ impl PacketKey for QuicPacketKey {
 
 pub struct QuicHeaderKey {
     algorithm: QuicAlgorithm,
-    key: AeadKey,
+    key: InnerKey,
 }
 
 impl HeaderProtectionKey for QuicHeaderKey {
@@ -187,17 +243,20 @@ impl QuicHeaderKey {
             }
             QuicAlgorithm::Aes128 => {
                 // Just do AES-ECB and take the first 5 bytes
-                todo!()
-                //aes_gcm::aes::
-                //let mut out: [u8; 5] = [0; 5];
+                use aes_gcm::aes::Aes128;
+                use aes_gcm::aes::cipher::{BlockEncrypt, KeyInit};
+                let c = Aes128::new(self.key.as_ref().into());
+                let mut sample: [u8; 16] = sample.try_into().unwrap();
+                c.encrypt_block((&mut sample).into());
+                out.copy_from_slice(&sample[..5]);
             }
             QuicAlgorithm::Aes256 => {
-                // Just do AES-ECB and take the first 5 bytes
-                todo!()
-                //aes_gcm::aes::
-                //let mut out: [u8; 5] = [0; 5];
-                //out.copy_from_slice(&block.as_ref()[..5]);
-                //out
+                use aes_gcm::aes::Aes256;
+                use aes_gcm::aes::cipher::{BlockEncrypt, KeyInit};
+                let c = Aes256::new(self.key.as_ref().into());
+                let mut sample: [u8; 16] = sample.try_into().unwrap();
+                c.encrypt_block((&mut sample).into());
+                out.copy_from_slice(&sample[..5]);
             }
         }
         Ok(out)
@@ -273,15 +332,15 @@ mod tests {
             hex::decode("25a282b9e82f06f21f488917a4fc8f1b73573685608597d0efcb076b0ab7a7a4")
                 .unwrap();
         let rfc_pn: u64 = 654360564; // 0x2700bff4
-        let rfc_nonce = hex::decode("e0459b3474bdd0e46d417eb0").unwrap();
+        //let rfc_nonce = hex::decode("e0459b3474bdd0e46d417eb0").unwrap();
         let rfc_unprotected_header = hex::decode("4200bff4").unwrap();
         let rfc_payload = hex::decode("01").unwrap();
-        let rfc_payload_ciphertext = hex::decode("655e5cd55c41f69080575d7999c25a5bfb").unwrap();
+        //let rfc_payload_ciphertext = hex::decode("655e5cd55c41f69080575d7999c25a5bfb").unwrap();
         let rfc_sample = hex::decode("5e5cd55c41f69080575d7999c25a5bfb").unwrap();
-        let rfc_mask = hex::decode("aefefe7d03").unwrap();
+        //let rfc_mask = hex::decode("aefefe7d03").unwrap();
         let rfc_header = hex::decode("4cfe4189").unwrap();
         let rfc_packet = hex::decode("4cfe4189655e5cd55c41f69080575d7999c25a5bfb").unwrap();
-        let rfc_packet_header = &rfc_packet[0..4];
+        //let rfc_packet_header = &rfc_packet[0..4];
         let rfc_packet_encrypted = &rfc_packet[4..5];
         let rfc_packet_tag = &rfc_packet[5..];
 
@@ -365,5 +424,68 @@ mod tests {
 
         // Test packet decryption
         assert_eq!(&payload[0..1], rfc_payload);
+    }
+
+    // taken from rustls-openssl
+    #[test]
+    fn test_aes_test_vector() {
+        use rustls::Side;
+        use rustls::quic::{Keys, Version};
+
+        // https://www.ietf.org/archive/id/draft-ietf-quic-v2-10.html#name-sample-packet-protection-2
+        let icid = [0x83, 0x94, 0xc8, 0xf0, 0x3e, 0x51, 0x57, 0x08];
+        let server = Keys::initial(
+            Version::V2,
+            &TLS13_AES_128_GCM_SHA256_INTERNAL,
+            TLS13_AES_128_GCM_SHA256_INTERNAL.quic.unwrap(),
+            &icid,
+            Side::Server,
+        );
+        let mut server_payload = [
+            0x02, 0x00, 0x00, 0x00, 0x00, 0x06, 0x00, 0x40, 0x5a, 0x02, 0x00, 0x00, 0x56, 0x03,
+            0x03, 0xee, 0xfc, 0xe7, 0xf7, 0xb3, 0x7b, 0xa1, 0xd1, 0x63, 0x2e, 0x96, 0x67, 0x78,
+            0x25, 0xdd, 0xf7, 0x39, 0x88, 0xcf, 0xc7, 0x98, 0x25, 0xdf, 0x56, 0x6d, 0xc5, 0x43,
+            0x0b, 0x9a, 0x04, 0x5a, 0x12, 0x00, 0x13, 0x01, 0x00, 0x00, 0x2e, 0x00, 0x33, 0x00,
+            0x24, 0x00, 0x1d, 0x00, 0x20, 0x9d, 0x3c, 0x94, 0x0d, 0x89, 0x69, 0x0b, 0x84, 0xd0,
+            0x8a, 0x60, 0x99, 0x3c, 0x14, 0x4e, 0xca, 0x68, 0x4d, 0x10, 0x81, 0x28, 0x7c, 0x83,
+            0x4d, 0x53, 0x11, 0xbc, 0xf3, 0x2b, 0xb9, 0xda, 0x1a, 0x00, 0x2b, 0x00, 0x02, 0x03,
+            0x04,
+        ];
+        let mut server_header = [
+            0xd1, 0x6b, 0x33, 0x43, 0xcf, 0x00, 0x08, 0xf0, 0x67, 0xa5, 0x50, 0x2a, 0x42, 0x62,
+            0xb5, 0x00, 0x40, 0x75, 0x00, 0x01,
+        ];
+        let tag = server
+            .local
+            .packet
+            .encrypt_in_place(1, &server_header, &mut server_payload)
+            .unwrap();
+        let (first, rest) = server_header.split_at_mut(1);
+        let rest_len = rest.len();
+        server
+            .local
+            .header
+            .encrypt_in_place(
+                &server_payload[2..18],
+                &mut first[0],
+                &mut rest[rest_len - 2..],
+            )
+            .unwrap();
+        let mut server_packet = server_header.to_vec();
+        server_packet.extend(server_payload);
+        server_packet.extend(tag.as_ref());
+        let expected_server_packet = [
+            0xdc, 0x6b, 0x33, 0x43, 0xcf, 0x00, 0x08, 0xf0, 0x67, 0xa5, 0x50, 0x2a, 0x42, 0x62,
+            0xb5, 0x00, 0x40, 0x75, 0xd9, 0x2f, 0xaa, 0xf1, 0x6f, 0x05, 0xd8, 0xa4, 0x39, 0x8c,
+            0x47, 0x08, 0x96, 0x98, 0xba, 0xee, 0xa2, 0x6b, 0x91, 0xeb, 0x76, 0x1d, 0x9b, 0x89,
+            0x23, 0x7b, 0xbf, 0x87, 0x26, 0x30, 0x17, 0x91, 0x53, 0x58, 0x23, 0x00, 0x35, 0xf7,
+            0xfd, 0x39, 0x45, 0xd8, 0x89, 0x65, 0xcf, 0x17, 0xf9, 0xaf, 0x6e, 0x16, 0x88, 0x6c,
+            0x61, 0xbf, 0xc7, 0x03, 0x10, 0x6f, 0xba, 0xf3, 0xcb, 0x4c, 0xfa, 0x52, 0x38, 0x2d,
+            0xd1, 0x6a, 0x39, 0x3e, 0x42, 0x75, 0x75, 0x07, 0x69, 0x80, 0x75, 0xb2, 0xc9, 0x84,
+            0xc7, 0x07, 0xf0, 0xa0, 0x81, 0x2d, 0x8c, 0xd5, 0xa6, 0x88, 0x1e, 0xaf, 0x21, 0xce,
+            0xda, 0x98, 0xf4, 0xbd, 0x23, 0xf6, 0xfe, 0x1a, 0x3e, 0x2c, 0x43, 0xed, 0xd9, 0xce,
+            0x7c, 0xa8, 0x4b, 0xed, 0x85, 0x21, 0xe2, 0xe1, 0x40,
+        ];
+        assert_eq!(server_packet[..], expected_server_packet[..]);
     }
 }
