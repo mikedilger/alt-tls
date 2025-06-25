@@ -27,10 +27,10 @@ mod tls13;
 pub use tls13::*;
 mod x25519;
 
-pub use ed25519_dalek::SigningKey;
 use ed25519_dalek::pkcs8::EncodePrivateKey;
 use ed25519_dalek::pkcs8::spki::der::pem::LineEnding;
 pub use ed25519_dalek::pkcs8::spki::der::zeroize::Zeroizing;
+pub use ed25519_dalek::{SigningKey, VerifyingKey};
 use rcgen::{CertificateParams, KeyPair};
 use rustls::SignatureScheme;
 use rustls::crypto::{CryptoProvider, WebPkiSupportedAlgorithms};
@@ -74,8 +74,20 @@ pub fn self_signed_tls_identity(
     Ok((certificate_der, private_key_der))
 }
 
-// cert_chain: Vec<CertificateDer<'static>>,
-// key_der: PrivateKeyDer<'static>,
+/// This extracts the ed25519 public key from a CertificateDer
+pub fn public_key_from_certificate_der(
+    cert: CertificateDer<'static>,
+) -> Result<VerifyingKey, Error> {
+    let (_, cert) = x509_parser::parse_x509_certificate(&cert).map_err(|_| Error::X509)?;
+    Ok(VerifyingKey::from_bytes(
+        cert.tbs_certificate
+            .subject_pki
+            .subject_public_key
+            .as_ref()
+            .try_into()
+            .unwrap(), // REMOVE UNWRAP
+    )?)
+}
 
 /// This supplies a rustls `CryptoProvider` that works with a very restricted
 /// configuration:
@@ -152,5 +164,23 @@ impl rustls::crypto::KeyProvider for Provider {
                 err
             },
         )?))
+    }
+}
+
+#[cfg(test)]
+mod test {
+    #[test]
+    fn test_key_and_cert_conversions() {
+        use ed25519_dalek::SigningKey;
+
+        let mut csprng = rand_core::OsRng;
+        let signing_key = SigningKey::generate(&mut csprng);
+
+        let (certificate_der, _private_key_der) =
+            crate::self_signed_tls_identity(&signing_key, vec!["testing".to_owned()]).unwrap();
+
+        let pubkey_extracted = crate::public_key_from_certificate_der(certificate_der).unwrap();
+
+        assert_eq!(pubkey_extracted, signing_key.verifying_key());
     }
 }

@@ -6,6 +6,8 @@ use std::error::Error as StdError;
 pub enum Error {
     Pkcs8(pkcs8::Error),
     RcGen(rcgen::Error),
+    Dalek(ed25519_dalek::ed25519::Error),
+    X509,
 }
 
 impl StdError for Error {
@@ -13,6 +15,8 @@ impl StdError for Error {
         match self {
             Error::Pkcs8(e) => Some(e),
             Error::RcGen(e) => Some(e),
+            Error::Dalek(e) => Some(e),
+            _ => None,
         }
     }
 }
@@ -22,6 +26,8 @@ impl std::fmt::Display for Error {
         match self {
             Error::Pkcs8(e) => write!(f, "PKCS8: {e}"),
             Error::RcGen(e) => write!(f, "Rcgen: {e}"),
+            Error::Dalek(e) => write!(f, "Ed25519 error: {e}"),
+            Error::X509 => write!(f, "X509 certificate parsing error"),
         }
     }
 }
@@ -47,5 +53,11 @@ impl From<pkcs8::Error> for Error {
 impl From<rcgen::Error> for Error {
     fn from(e: rcgen::Error) -> Error {
         Error::RcGen(e)
+    }
+}
+
+impl From<ed25519_dalek::ed25519::Error> for Error {
+    fn from(e: ed25519_dalek::ed25519::Error) -> Error {
+        Error::Dalek(e)
     }
 }
