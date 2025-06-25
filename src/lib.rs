@@ -34,9 +34,8 @@ pub use ed25519_dalek::pkcs8::spki::der::zeroize::Zeroizing;
 use rcgen::{CertificateParams, KeyPair};
 use rustls::SignatureScheme;
 use rustls::crypto::{CryptoProvider, WebPkiSupportedAlgorithms};
-use rustls::pki_types::PrivateKeyDer;
+use rustls::pki_types::{CertificateDer, PrivateKeyDer, PrivatePkcs8KeyDer};
 
-#[cfg(feature = "std")]
 /// This generates a self-signed certificate from an ed25519 private signing key
 pub fn certificate_pem(signing_key: &SigningKey) -> Result<String, Error> {
     let signing_key_pem = signing_key.to_pkcs8_pem(LineEnding::LF)?;
@@ -50,19 +49,33 @@ pub fn certificate_pem(signing_key: &SigningKey) -> Result<String, Error> {
     Ok(cert.pem())
 }
 
-#[cfg(not(feature = "std"))]
-/// This generates a self-signed certificate from an ed25519 private signing key
-pub fn certificate_pem(signing_key: &SigningKey) -> Result<String, Error> {
-    let signing_key_pem = signing_key.to_pkcs8_pem(LineEnding::LF)?;
-    let rcgen_keypair = KeyPair::from_pem(signing_key_pem.deref())?;
+/// This generates a self-signed CertificateDer and PrivateKeyDer for use with rustls
+/// as either server or client-side identity
+pub fn self_signed_tls_identity(
+    signing_key: &SigningKey,
+    distinguished_names: vec::Vec<String>,
+) -> Result<(CertificateDer<'static>, PrivateKeyDer<'static>), Error> {
+    let private_key_der = {
+        let dalek_secret_document_der = signing_key.to_pkcs8_der()?;
+        let private_pkcs8_key_der: PrivatePkcs8KeyDer<'_> =
+            dalek_secret_document_der.as_bytes().into();
+        let private_pkcs8_key_der: PrivatePkcs8KeyDer<'static> = private_pkcs8_key_der.clone_key();
+        PrivateKeyDer::Pkcs8(private_pkcs8_key_der)
+    };
 
-    let cert = CertificateParams::new(vec![
-        "IGNORE THE NAME, DETERMINE TRUST FROM THE KEY".to_string(),
-    ])?
-    .self_signed(&rcgen_keypair)?;
+    let certificate_der = {
+        use crate::alloc::borrow::ToOwned;
+        let certificate_params = CertificateParams::new(distinguished_names)?;
+        let key_pair = KeyPair::try_from(&private_key_der)?;
+        let certificate = certificate_params.self_signed(&key_pair)?;
+        certificate.der().to_owned()
+    };
 
-    Ok(cert.pem())
+    Ok((certificate_der, private_key_der))
 }
+
+// cert_chain: Vec<CertificateDer<'static>>,
+// key_der: PrivateKeyDer<'static>,
 
 /// This supplies a rustls `CryptoProvider` that works with a very restricted
 /// configuration:
