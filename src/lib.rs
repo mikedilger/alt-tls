@@ -76,9 +76,9 @@ pub fn self_signed_tls_identity(
 
 /// This extracts the ed25519 public key from a CertificateDer
 pub fn public_key_from_certificate_der(
-    cert: CertificateDer<'static>,
+    cert: &CertificateDer<'static>,
 ) -> Result<VerifyingKey, Error> {
-    let (_, cert) = x509_parser::parse_x509_certificate(&cert).map_err(|_| Error::X509)?;
+    let (_, cert) = x509_parser::parse_x509_certificate(cert).map_err(|_| Error::X509)?;
     Ok(VerifyingKey::from_bytes(
         cert.tbs_certificate
             .subject_pki
@@ -179,7 +179,7 @@ mod test {
         let (certificate_der, _private_key_der) =
             crate::self_signed_tls_identity(&signing_key, vec!["testing".to_owned()]).unwrap();
 
-        let pubkey_extracted = crate::public_key_from_certificate_der(certificate_der).unwrap();
+        let pubkey_extracted = crate::public_key_from_certificate_der(&certificate_der).unwrap();
 
         assert_eq!(pubkey_extracted, signing_key.verifying_key());
     }
