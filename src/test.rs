@@ -15,8 +15,6 @@ fn test_key_and_cert_conversions() {
 
 #[test]
 fn test_data_transfer() {
-    use rand::rngs::{OsRng, SmallRng};
-    use rand::{Fill, SeedableRng};
     use rustls::{ClientConfig, KeyLogFile, ServerConfig};
     use std::io::{Read, Write};
     use std::net::{TcpListener, TcpStream};
@@ -24,7 +22,7 @@ fn test_data_transfer() {
 
     pub const ALPN: &[u8] = b"testing";
 
-    let mut csprng = OsRng;
+    let mut csprng = rand_core::OsRng;
 
     let server_signing_key = ed25519_dalek::SigningKey::generate(&mut csprng);
     let server_verifying_key = server_signing_key.verifying_key();
@@ -80,6 +78,8 @@ fn test_data_transfer() {
         Arc::new(client_config)
     };
 
+    const LEN: usize = 1369;
+
     // Server:
     let server_handle = std::thread::spawn(|| {
         let listener = TcpListener::bind("127.99.99.99:4443").unwrap();
@@ -87,13 +87,17 @@ fn test_data_transfer() {
         let mut conn = rustls::ServerConnection::new(server_config).unwrap();
         let mut tls = rustls::Stream::new(&mut conn, &mut tcp_stream);
 
-        // WRITE TEST
-        let mut seeded_rng = SmallRng::from_seed([0u8; 32]);
-        for _ in 0..2 {
-            let mut msg = vec![0_u8; 369];
-            msg.try_fill(&mut seeded_rng).unwrap();
+        // Write test data over TLS
+        for l in 0..99 {
+            let mut msg = vec![0_u8; LEN];
+            for i in 0..LEN {
+                msg[i] = ((l * LEN + i) % 256) as u8;
+            }
             tls.write_all(&msg).unwrap();
-            tls.flush().unwrap();
+            if l % 3 == 0 {
+                // only flush sometimes
+                tls.flush().unwrap();
+            }
         }
         tls.conn.send_close_notify();
         tls.flush().unwrap();
@@ -107,8 +111,8 @@ fn test_data_transfer() {
     let mut sock = TcpStream::connect("127.99.99.99:4443").unwrap();
     let mut tls = rustls::Stream::new(&mut conn, &mut sock);
 
-    let mut transmitted = Vec::new();
-    tls.read_to_end(&mut transmitted).unwrap();
+    let mut received = Vec::new();
+    tls.read_to_end(&mut received).unwrap();
 
     let ciphersuite = tls.conn.negotiated_cipher_suite().unwrap();
     assert_eq!(
@@ -116,9 +120,12 @@ fn test_data_transfer() {
         rustls::CipherSuite::Unknown(crate::tls13::IANA_CIPHER_SUITE)
     );
 
-    let mut seeded_rng = SmallRng::from_seed([0u8; 32]);
-    let mut proper = vec![0_u8; transmitted.len()];
-    proper.try_fill(&mut seeded_rng).unwrap();
+    let len = received.len();
+    eprintln!("Received {len} bytes");
+    let mut proper = vec![0_u8; len];
+    for i in 0..len {
+        proper[i] = (i % 256) as u8
+    }
 
     tls.write_all(b"BYE").unwrap();
     tls.conn.send_close_notify();
@@ -126,8 +133,8 @@ fn test_data_transfer() {
 
     server_handle.join().unwrap();
 
-    // Compare transmitted adn proper
+    // Compare received and proper
     for i in 0..proper.len() {
-        assert!(transmitted[i] == proper[i], "Fails at byte {i}");
+        assert!(received[i] == proper[i], "Fails at byte {i}");
     }
 }
