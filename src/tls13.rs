@@ -4,7 +4,7 @@ use rustls::{CipherSuite, CipherSuiteCommon, Tls13CipherSuite};
 
 // We currently use a 'reserved for private use' number. Get one assigned.
 // See: https://www.iana.org/assignments/tls-parameters/tls-parameters.xml#tls-parameters-4
-const IANA_CIPHER_SUITE: u16 = 0xFFED;
+pub(crate) const IANA_CIPHER_SUITE: u16 = 0xFFED;
 
 pub static TLS13_CHACHA20_POLY1305_BLAKE3: SupportedCipherSuite =
     SupportedCipherSuite::Tls13(&TLS13_CHACHA20_POLY1305_BLAKE3_INTERNAL);

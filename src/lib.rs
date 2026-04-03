@@ -27,6 +27,9 @@ mod tls13;
 pub use tls13::*;
 mod x25519;
 
+#[cfg(test)]
+mod test;
+
 use ed25519_dalek::pkcs8::EncodePrivateKey;
 use ed25519_dalek::pkcs8::spki::der::pem::LineEnding;
 pub use ed25519_dalek::pkcs8::spki::der::zeroize::Zeroizing;
@@ -164,23 +167,5 @@ impl rustls::crypto::KeyProvider for Provider {
                 err
             },
         )?))
-    }
-}
-
-#[cfg(test)]
-mod test {
-    #[test]
-    fn test_key_and_cert_conversions() {
-        use ed25519_dalek::SigningKey;
-
-        let mut csprng = rand_core::OsRng;
-        let signing_key = SigningKey::generate(&mut csprng);
-
-        let (certificate_der, _private_key_der) =
-            crate::self_signed_tls_identity(&signing_key, vec!["testing".to_owned()]).unwrap();
-
-        let pubkey_extracted = crate::public_key_from_certificate_der(&certificate_der).unwrap();
-
-        assert_eq!(pubkey_extracted, signing_key.verifying_key());
     }
 }
