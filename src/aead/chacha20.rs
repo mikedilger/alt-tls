@@ -3,7 +3,7 @@ use alloc::boxed::Box;
 use chacha20poly1305::{AeadInPlace, KeyInit, KeySizeUser};
 use rustls::crypto::cipher::{
     self, AeadKey, InboundOpaqueMessage, InboundPlainMessage, Iv, MessageDecrypter,
-    MessageEncrypter, OutboundOpaqueMessage, OutboundPlainMessage, PrefixedPayload,
+    MessageEncrypter, Nonce, OutboundOpaqueMessage, OutboundPlainMessage, PrefixedPayload,
     Tls13AeadAlgorithm, UnsupportedOperationError,
 };
 use rustls::{ConnectionTrafficSecrets, ContentType, ProtocolVersion};
@@ -53,17 +53,16 @@ impl MessageEncrypter for Tls13Cipher {
 
         payload.extend_from_chunks(&m.payload);
         payload.extend_from_slice(&m.typ.to_array());
-
-        let nonce: chacha20poly1305::Nonce = cipher::Nonce::new(&self.1, seq).0.into();
+        let nonce = chacha20poly1305::Nonce::from(Nonce::new(&self.1, seq).0);
         let aad = cipher::make_tls13_aad(total_len);
 
         self.0
             .encrypt_in_place(&nonce, &aad, &mut EncryptBufferAdapter(&mut payload))
             .map_err(|_| rustls::Error::EncryptError)
-            .map(|()| {
+            .map(|_| {
                 OutboundOpaqueMessage::new(
                     ContentType::ApplicationData,
-                    ProtocolVersion::TLSv1_2,
+                    ProtocolVersion::TLSv1_2, // WHY NOT 1_3 ?
                     payload,
                 )
             })
@@ -81,7 +80,7 @@ impl MessageDecrypter for Tls13Cipher {
         seq: u64,
     ) -> Result<InboundPlainMessage<'a>, rustls::Error> {
         let payload = &mut m.payload;
-        let nonce: chacha20poly1305::Nonce = cipher::Nonce::new(&self.1, seq).0.into();
+        let nonce = chacha20poly1305::Nonce::from(Nonce::new(&self.1, seq).0);
         let aad = cipher::make_tls13_aad(payload.len());
 
         self.0
